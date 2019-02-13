@@ -1,4 +1,3 @@
-
 import sys
 import numpy as np
 
@@ -107,39 +106,37 @@ class inversion(object):
         if not exists(PATH.MODEL_INIT):
             raise Exception()
 
-
     def main(self):
         """ Carries out seismic inversion
         """
         optimize.iter = PAR.BEGIN
         self.setup()
-        print ''
+        print ('')
 
-	print 'PAR.OPTIMIZE',PAR.OPTIMIZE
+        print ('PAR.OPTIMIZE', PAR.OPTIMIZE)
 
         while optimize.iter <= PAR.END:
-            print "Starting iteration", optimize.iter
+            print ("Starting iteration", optimize.iter)
             self.initialize()
 
-            print "Computing gradient"
+            print ("Computing gradient")
             self.evaluate_gradient()
 
-            print "Computing SRVM"
-	    if PAR.OPTIMIZE in ['SRVM']:
-		self.update_SRVM()
+            if PAR.OPTIMIZE in ['SRVM']:
+                print ("Computing SRVM")
+                self.update_SRVM()
 
-            print "Computing search direction"
+            print ("Computing search direction")
             self.compute_direction()
 
-            print "Computing step length"
+            print ("Computing step length")
             self.line_search()
 
             self.finalize()
             self.clean()
 
             optimize.iter += 1
-            print ''
-
+            print ('')
 
     def setup(self):
         """ Lays groundwork for inversion
@@ -150,28 +147,26 @@ class inversion(object):
             optimize.setup()
 
         if optimize.iter == 1 or \
-           PATH.LOCAL:
+                PATH.LOCAL:
             if PATH.DATA:
-                print 'Copying data' 
+                print ('Copying data')
             else:
-                print 'Generating data' 
+                print ('Generating data')
 
             system.run('solver', 'setup',
-                hosts='all')
-
+                       hosts='all')
 
     def initialize(self):
         """ Prepares for next model update iteration
         """
         self.write_model(path=PATH.GRAD, suffix='new')
 
-        print 'Generating synthetics'
+        print ('Generating synthetics')
         system.run('solver', 'eval_func',
                    hosts='all',
                    path=PATH.GRAD)
 
         self.write_misfit(path=PATH.GRAD, suffix='new')
-
 
     def compute_direction(self):
         """ Computes search direction
@@ -182,7 +177,6 @@ class inversion(object):
         """ Computes search direction
         """
         optimize.update_SRVM()
-
 
     def line_search(self):
         """ Conducts line search in given search direction
@@ -201,14 +195,13 @@ class inversion(object):
             else:
                 retry = optimize.retry_status()
                 if retry:
-                    print ' Line search failed\n\n Retrying...'
+                    print (' Line search failed\n\n Retrying...')
                     optimize.restart()
                     self.line_search()
                     break
                 else:
-                    print ' Line search failed\n\n Aborting...'
+                    print (' Line search failed\n\n Aborting...')
                     sys.exit(-1)
-
 
     def iterate_search(self):
         """ First, calls self.evaluate_function, which carries out a forward 
@@ -217,11 +210,10 @@ class inversion(object):
           stopping conditions.
         """
         if PAR.VERBOSE > 0:
-            print " trial step", optimize.step_count+1
+            print (" trial step", optimize.step_count + 1)
 
         self.evaluate_function()
         optimize.update_status()
-
 
     def evaluate_function(self):
         """ Performs forward simulation to evaluate objective function
@@ -234,7 +226,6 @@ class inversion(object):
 
         self.write_misfit(path=PATH.FUNC, suffix='try')
 
-
     def evaluate_gradient(self):
         """ Performs adjoint simulation to evaluate gradient
         """
@@ -244,7 +235,6 @@ class inversion(object):
                    export_traces=divides(optimize.iter, PAR.SAVETRACES))
 
         self.write_gradient(path=PATH.GRAD, suffix='new')
-
 
     def finalize(self):
         """ Saves results from current model update iteration
@@ -266,7 +256,6 @@ class inversion(object):
         if divides(optimize.iter, PAR.SAVERESIDUALS):
             self.save_residuals()
 
-
     def clean(self):
         """ Cleans directories in which function and gradient evaluations were
           carried out
@@ -276,61 +265,52 @@ class inversion(object):
         unix.mkdir(PATH.GRAD)
         unix.mkdir(PATH.FUNC)
 
-
     def write_model(self, path='', suffix=''):
         """ Writes model in format expected by solver
         """
-        src = 'm_'+suffix
-        dst = path +'/'+ 'model'
+        src = 'm_' + suffix
+        dst = path + '/' + 'model'
         parts = solver.split(optimize.load(src))
         solver.save(dst, parts)
-
 
     def write_gradient(self, path='', suffix=''):
         """ Writes gradient in form expected by nonlinear optimization library
         """
         src = join(path, 'gradient')
-        dst = 'g_'+suffix
+        dst = 'g_' + suffix
         postprocess.write_gradient(path)
         parts = solver.load(src, suffix='_kernel')
         optimize.save(dst, solver.merge(parts))
 
-
     def write_misfit(self, path='', suffix=''):
         """ Writes misfit in form expected by nonlinear optimization library
         """
-        src = glob(path +'/'+ 'residuals/*')
-        dst = 'f_'+suffix
+        src = glob(path + '/' + 'residuals/*')
+        dst = 'f_' + suffix
         total_misfit = preprocess.sum_residuals(src)
         optimize.savetxt(dst, [total_misfit])
-
 
     def save_gradient(self):
         src = join(PATH.GRAD, 'gradient')
         dst = join(PATH.OUTPUT, 'gradient_%04d' % optimize.iter)
         unix.mv(src, dst)
 
-
     def save_model(self):
         src = 'm_new'
         dst = join(PATH.OUTPUT, 'model_%04d' % optimize.iter)
         solver.save(dst, solver.split(optimize.load(src)))
-
 
     def save_kernels(self):
         src = join(PATH.GRAD, 'kernels')
         dst = join(PATH.OUTPUT, 'kernels_%04d' % optimize.iter)
         unix.mv(src, dst)
 
-
     def save_traces(self):
         src = join(PATH.GRAD, 'traces')
         dst = join(PATH.OUTPUT, 'traces_%04d' % optimize.iter)
         unix.mv(src, dst)
 
-
     def save_residuals(self):
         src = join(PATH.GRAD, 'residuals')
         dst = join(PATH.OUTPUT, 'residuals_%04d' % optimize.iter)
         unix.mv(src, dst)
-
